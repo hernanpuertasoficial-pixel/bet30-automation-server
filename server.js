@@ -1,6 +1,6 @@
 const express = require("express");
-const axios = require("axios");
 const cors = require("cors");
+const puppeteer = require("puppeteer");
 
 const app = express();
 
@@ -11,73 +11,67 @@ app.get("/", (req, res) => {
   res.send("BET30 automation server running 🚀");
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
-});
-
 app.post("/api/create-player", async (req, res) => {
+  const { username, password } = req.body;
+
   try {
-    const { username, password } = req.body;
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
 
-    console.log("🟡 Creating player:", username);
+    const page = await browser.newPage();
 
-    // 🔐 LOGIN EN BET30
-    const loginRes = await axios.post(
-      `${process.env.BET30_ADMIN_URL}/login`,
-      {
-        username: process.env.BET30_ADMIN_USER,
-        password: process.env.BET30_ADMIN_PASSWORD,
-      },
-      {
-        withCredentials: true,
-      }
-    );
+    console.log("🔐 Entrando a BET30...");
 
-    console.log("🟢 Login success");
+    await page.goto("https://agentes.bet30.biz/", {
+      waitUntil: "networkidle2"
+    });
 
-    const cookies = loginRes.headers["set-cookie"];
+    // LOGIN
+    await page.type('input[name="username"]', "bot");
+    await page.type('input[name="password"]', "12345678a");
 
-    // 👤 CREAR USUARIO EN BET30
-    const createRes = await axios.post(
-      `${process.env.BET30_ADMIN_URL}/create-user`,
-      {
-        username,
-        password,
-      },
-      {
-        headers: {
-          Cookie: cookies,
-        },
-      }
-    );
+    await page.click('button[type="submit"]');
 
-    console.log("🟢 BET30 response:", createRes.data);
+    await page.waitForNavigation();
+
+    console.log("✅ Login correcto");
+
+    // ⚠️ ESTO HAY QUE AJUSTAR SEGÚN LA WEB REAL
+    // intenta ir a crear jugador
+    await page.goto("https://agentes.bet30.biz/crear-usuario", {
+      waitUntil: "networkidle2"
+    });
+
+    console.log("👤 Creando usuario...");
+
+    await page.type('input[name="username"]', username);
+    await page.type('input[name="password"]', password);
+
+    await page.click('button[type="submit"]');
+
+    await page.waitForTimeout(5000);
+
+    await browser.close();
 
     return res.json({
       success: true,
-      data: createRes.data,
+      message: "Usuario creado en BET30"
     });
-  } catch (error) {
-    console.error("🔴 ERROR:", error.response?.data || error.message);
 
-    return res.json({
+  } catch (error) {
+    console.error("❌ ERROR:", error);
+
+    return res.status(500).json({
       success: false,
-      error: error.response?.data || error.message,
+      error: "Error en automatización"
     });
   }
-});
-
-app.post("/api/credit-balance", (req, res) => {
-  console.log("Credit balance:", req.body);
-
-  return res.json({
-    success: true,
-    message: "Balance acreditado (mock)",
-  });
 });
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("🚀 Server running on port " + PORT);
+  console.log("Server running on port " + PORT);
 });
