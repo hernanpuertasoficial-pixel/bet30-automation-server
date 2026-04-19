@@ -18,18 +18,27 @@ app.post("/api/create-player", async (req, res) => {
 
   try {
     const browser = await puppeteer.launch({
-      headless: false, // 🔥 IMPORTANTE (debug real)
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+      headless: "new", // 🔥 CORREGIDO (OBLIGATORIO en Railway)
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-zygote",
+        "--single-process"
+      ]
     });
 
     const page = await browser.newPage();
 
     console.log("🔐 Entrando a BET30...");
-    await page.goto(process.env.BET30_ADMIN_URL);
+    await page.goto(process.env.BET30_ADMIN_URL, {
+      waitUntil: "networkidle2"
+    });
 
     await delay(15000);
 
-    // 🔥 DEBUG: ver HTML real
+    // DEBUG HTML
     const content = await page.content();
     console.log("HTML LENGTH:", content.length);
 
@@ -46,25 +55,25 @@ app.post("/api/create-player", async (req, res) => {
 
     await delay(5000);
 
-    // 🔥 BUSCAR INPUTS EN FRAME
+    // 🔥 BUSCAR INPUTS
     const inputs = await frame.$$("input");
-
     console.log("INPUTS ENCONTRADOS:", inputs.length);
 
     if (inputs.length < 2) {
-      throw new Error("⚠️ Puppeteer NO ve los inputs → posible protección o iframe oculto");
+      throw new Error("No se detectaron inputs de login");
     }
 
-    // 🔥 LOGIN
+    // LOGIN
     await inputs[0].click({ clickCount: 3 });
     await inputs[0].type(process.env.BET30_ADMIN_USER);
 
     await inputs[1].click({ clickCount: 3 });
     await inputs[1].type(process.env.BET30_ADMIN_PASSWORD);
 
-    // botón login
+    // BOTÓN LOGIN
     await frame.evaluate(() => {
-      const btn = document.querySelector("#dologin") ||
+      const btn =
+        document.querySelector("#dologin") ||
         [...document.querySelectorAll("button")]
           .find(b => b.innerText.toLowerCase().includes("iniciar"));
       if (btn) btn.click();
@@ -73,9 +82,6 @@ app.post("/api/create-player", async (req, res) => {
     await delay(12000);
 
     console.log("✅ Login intentado");
-
-    // 🔥 DEBUG: screenshot
-    await page.screenshot({ path: "debug.png" });
 
     // 🔥 CLICK NUEVO JUGADOR
     await frame.evaluate(() => {
@@ -86,7 +92,7 @@ app.post("/api/create-player", async (req, res) => {
 
     await delay(6000);
 
-    // 🔥 FORMULARIO
+    // FORMULARIO
     const inputs2 = await frame.$$("input");
 
     if (inputs2.length < 2) {
@@ -96,6 +102,7 @@ app.post("/api/create-player", async (req, res) => {
     await inputs2[inputs2.length - 2].type(username);
     await inputs2[inputs2.length - 1].type(password);
 
+    // GUARDAR
     await frame.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
         .find(el => el.innerText.toLowerCase().includes("guardar"));
