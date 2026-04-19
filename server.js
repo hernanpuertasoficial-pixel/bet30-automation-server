@@ -22,41 +22,50 @@ app.post("/api/create-player", async (req, res) => {
 
     const page = await browser.newPage();
 
-    console.log("🔐 Login BET30...");
+    console.log("🔐 Entrando a BET30...");
 
-    await page.goto("https://agentes.bet30.biz/", {
+    await page.goto(process.env.BET30_ADMIN_URL, {
       waitUntil: "networkidle2"
     });
 
-    // LOGIN REAL (ya corregido)
-    await page.type("#username", "bot");
-    await page.type("#password", "12345678a");
+    // LOGIN (AHORA USA VARIABLES DE RAILWAY)
+    await page.type("#username", process.env.BET30_ADMIN_USER);
+    await page.type("#password", process.env.BET30_ADMIN_PASSWORD);
 
     await page.click("#dologin");
 
-    await page.waitForNavigation();
+    await page.waitForTimeout(5000);
 
     console.log("✅ Login correcto");
 
-    // ⚠️ AQUÍ FALTA AÚN
-    // navegar a "crear jugador"
-    // NECESITO ESA PANTALLA
+    // ⚠️ AQUÍ DEBES AJUSTAR LA URL REAL DE CREAR USUARIO
+    await page.goto("https://agentes.bet30.biz/crear-usuario", {
+      waitUntil: "networkidle2"
+    });
 
-    console.log("👤 Creando usuario (pendiente configurar form)...");
+    console.log("👤 Creando usuario...");
+
+    // ⚠️ ESTO TAMBIÉN DEPENDE DEL HTML REAL
+    await page.type('input[name="username"]', username);
+    await page.type('input[name="password"]', password);
+
+    await page.click('button[type="submit"]');
+
+    await page.waitForTimeout(5000);
 
     await browser.close();
 
     return res.json({
       success: true,
-      message: "Login correcto, falta paso crear usuario"
+      message: "Usuario creado en BET30"
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("❌ ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      error: "Error en automatización"
+      error: error.message
     });
   }
 });
