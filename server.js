@@ -4,7 +4,7 @@ const puppeteer = require("puppeteer");
 
 const app = express();
 
-// 🔥 función delay (reemplazo de waitForTimeout)
+// delay helper
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 app.use(cors());
@@ -25,46 +25,61 @@ app.post("/api/create-player", async (req, res) => {
 
     const page = await browser.newPage();
 
-    console.log("🔐 Login BET30...");
+    console.log("🔐 Entrando a BET30...");
 
     await page.goto(process.env.BET30_ADMIN_URL, {
       waitUntil: "networkidle2"
     });
 
-    // 🔥 ESPERAR QUE CARGUE
-    await delay(3000);
+    // 🔥 esperar que Angular cargue bien
+    await delay(5000);
 
-    // LOGIN
-    await page.waitForSelector("#username", { timeout: 10000 });
-    await page.type("#username", process.env.BET30_ADMIN_USER);
+    // ✅ LOGIN (corregido usando name)
+    await page.waitForSelector('input[name="username"]', { timeout: 20000 });
+    await page.type('input[name="username"]', process.env.BET30_ADMIN_USER);
 
-    await page.waitForSelector("#password", { timeout: 10000 });
-    await page.type("#password", process.env.BET30_ADMIN_PASSWORD);
+    await page.type('input[name="password"]', process.env.BET30_ADMIN_PASSWORD);
 
     await page.click("#dologin");
 
-    await delay(6000);
+    // esperar login completo
+    await delay(8000);
 
     console.log("✅ Login correcto");
 
-    // 🔥 CLICK EN "Nuevo Jugador"
-    await page.click('text/Nuevo Jugador');
-
-    await delay(3000);
-
-    console.log("👤 Abriendo formulario...");
-
-    // ESCRIBIR DATOS
-    await page.waitForSelector('input[placeholder="Username"]', { timeout: 10000 });
-    await page.type('input[placeholder="Username"]', username);
-
-    await page.waitForSelector('input[placeholder="Password"]', { timeout: 10000 });
-    await page.type('input[placeholder="Password"]', password);
-
-    // CLICK GUARDAR
-    await page.click('text/GUARDAR');
+    // 🔥 IR A USUARIOS (por si no está ya ahí)
+    await page.goto("https://agentes.bet30.biz/users", {
+      waitUntil: "networkidle2"
+    });
 
     await delay(5000);
+
+    // 🔥 CLICK BOTÓN "Nuevo Jugador"
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll("button")]
+        .find(el => el.innerText.includes("Nuevo Jugador"));
+      if (btn) btn.click();
+    });
+
+    await delay(4000);
+
+    console.log("👤 Formulario abierto");
+
+    // 🔥 INPUTS DEL MODAL (más robusto)
+    await page.waitForSelector('input[placeholder="Username"]', { timeout: 20000 });
+    await page.type('input[placeholder="Username"]', username);
+
+    await page.waitForSelector('input[placeholder="Password"]', { timeout: 20000 });
+    await page.type('input[placeholder="Password"]', password);
+
+    // 🔥 CLICK GUARDAR
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll("button")]
+        .find(el => el.innerText.includes("GUARDAR"));
+      if (btn) btn.click();
+    });
+
+    await delay(6000);
 
     console.log("✅ Usuario creado en BET30");
 
