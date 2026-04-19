@@ -1,6 +1,10 @@
 const express = require("express");
 const cors = require("cors");
-const puppeteer = require("puppeteer");
+
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+
+puppeteer.use(StealthPlugin());
 
 const app = express();
 
@@ -18,60 +22,42 @@ app.post("/api/create-player", async (req, res) => {
 
   try {
     const browser = await puppeteer.launch({
-      headless: "new", // 🔥 CORREGIDO (OBLIGATORIO en Railway)
+      headless: false, // 🔥 IMPORTANTE PARA DEBUG
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--no-zygote",
-        "--single-process"
+        "--disable-dev-shm-usage"
       ]
     });
 
     const page = await browser.newPage();
 
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+    );
+
     console.log("🔐 Entrando a BET30...");
+
     await page.goto(process.env.BET30_ADMIN_URL, {
       waitUntil: "networkidle2"
     });
 
-    await delay(15000);
+    await delay(10000);
 
-    // DEBUG HTML
-    const content = await page.content();
-    console.log("HTML LENGTH:", content.length);
+    // 🔥 LOGIN MÁS INTELIGENTE
+    const inputs = await page.$$("input");
 
-    // 🔥 DETECTAR IFRAME
-    const frames = page.frames();
-    console.log("FRAMES:", frames.length);
-
-    let frame = page;
-
-    if (frames.length > 1) {
-      frame = frames.find(f => f.url().includes("bet30")) || page;
-      console.log("🧠 Usando iframe:", frame.url());
-    }
-
-    await delay(5000);
-
-    // 🔥 BUSCAR INPUTS
-    const inputs = await frame.$$("input");
-    console.log("INPUTS ENCONTRADOS:", inputs.length);
+    console.log("Inputs detectados:", inputs.length);
 
     if (inputs.length < 2) {
       throw new Error("No se detectaron inputs de login");
     }
 
-    // LOGIN
-    await inputs[0].click({ clickCount: 3 });
     await inputs[0].type(process.env.BET30_ADMIN_USER);
-
-    await inputs[1].click({ clickCount: 3 });
     await inputs[1].type(process.env.BET30_ADMIN_PASSWORD);
 
-    // BOTÓN LOGIN
-    await frame.evaluate(() => {
+    // click login
+    await page.evaluate(() => {
       const btn =
         document.querySelector("#dologin") ||
         [...document.querySelectorAll("button")]
@@ -81,19 +67,18 @@ app.post("/api/create-player", async (req, res) => {
 
     await delay(12000);
 
-    console.log("✅ Login intentado");
+    console.log("✅ Login hecho");
 
     // 🔥 CLICK NUEVO JUGADOR
-    await frame.evaluate(() => {
+    await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
         .find(el => el.innerText.toLowerCase().includes("nuevo"));
       if (btn) btn.click();
     });
 
-    await delay(6000);
+    await delay(5000);
 
-    // FORMULARIO
-    const inputs2 = await frame.$$("input");
+    const inputs2 = await page.$$("input");
 
     if (inputs2.length < 2) {
       throw new Error("No se encontraron inputs del formulario");
@@ -102,8 +87,7 @@ app.post("/api/create-player", async (req, res) => {
     await inputs2[inputs2.length - 2].type(username);
     await inputs2[inputs2.length - 1].type(password);
 
-    // GUARDAR
-    await frame.evaluate(() => {
+    await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
         .find(el => el.innerText.toLowerCase().includes("guardar"));
       if (btn) btn.click();
