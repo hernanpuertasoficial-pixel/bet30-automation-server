@@ -4,6 +4,9 @@ const puppeteer = require("puppeteer");
 
 const app = express();
 
+// 🔥 función delay (reemplazo de waitForTimeout)
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 app.use(cors());
 app.use(express.json());
 
@@ -28,9 +31,10 @@ app.post("/api/create-player", async (req, res) => {
       waitUntil: "networkidle2"
     });
 
-    // 🔥 ESPERAR INPUTS (CORREGIDO)
-    await page.waitForTimeout(3000);
+    // 🔥 ESPERAR QUE CARGUE
+    await delay(3000);
 
+    // LOGIN
     await page.waitForSelector("#username", { timeout: 10000 });
     await page.type("#username", process.env.BET30_ADMIN_USER);
 
@@ -39,25 +43,28 @@ app.post("/api/create-player", async (req, res) => {
 
     await page.click("#dologin");
 
-    await page.waitForTimeout(6000);
+    await delay(6000);
 
     console.log("✅ Login correcto");
 
     // 🔥 CLICK EN "Nuevo Jugador"
     await page.click('text/Nuevo Jugador');
 
-    await page.waitForTimeout(3000);
+    await delay(3000);
 
     console.log("👤 Abriendo formulario...");
 
-    // ESCRIBIR DATOS DEL USUARIO
+    // ESCRIBIR DATOS
+    await page.waitForSelector('input[placeholder="Username"]', { timeout: 10000 });
     await page.type('input[placeholder="Username"]', username);
+
+    await page.waitForSelector('input[placeholder="Password"]', { timeout: 10000 });
     await page.type('input[placeholder="Password"]', password);
 
     // CLICK GUARDAR
     await page.click('text/GUARDAR');
 
-    await page.waitForTimeout(5000);
+    await delay(5000);
 
     console.log("✅ Usuario creado en BET30");
 
