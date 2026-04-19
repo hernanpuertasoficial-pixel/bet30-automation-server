@@ -22,36 +22,39 @@ app.post("/api/create-player", async (req, res) => {
 
     const page = await browser.newPage();
 
-    console.log("🔐 Entrando a BET30...");
+    console.log("🔐 Login BET30...");
 
     await page.goto(process.env.BET30_ADMIN_URL, {
       waitUntil: "networkidle2"
     });
 
-    // LOGIN (AHORA USA VARIABLES DE RAILWAY)
+    // LOGIN usando variables de Railway
     await page.type("#username", process.env.BET30_ADMIN_USER);
     await page.type("#password", process.env.BET30_ADMIN_PASSWORD);
 
     await page.click("#dologin");
 
-    await page.waitForTimeout(5000);
+    await page.waitForTimeout(6000);
 
     console.log("✅ Login correcto");
 
-    // ⚠️ AQUÍ DEBES AJUSTAR LA URL REAL DE CREAR USUARIO
-    await page.goto("https://agentes.bet30.biz/crear-usuario", {
-      waitUntil: "networkidle2"
-    });
+    // 🔥 CLICK EN "Nuevo Jugador"
+    await page.click('text/Nuevo Jugador');
 
-    console.log("👤 Creando usuario...");
+    await page.waitForTimeout(3000);
 
-    // ⚠️ ESTO TAMBIÉN DEPENDE DEL HTML REAL
-    await page.type('input[name="username"]', username);
-    await page.type('input[name="password"]', password);
+    console.log("👤 Abriendo formulario...");
 
-    await page.click('button[type="submit"]');
+    // ESCRIBIR DATOS DEL USUARIO
+    await page.type('input[placeholder="Username"]', username);
+    await page.type('input[placeholder="Password"]', password);
+
+    // CLICK GUARDAR
+    await page.click('text/GUARDAR');
 
     await page.waitForTimeout(5000);
+
+    console.log("✅ Usuario creado en BET30");
 
     await browser.close();
 
