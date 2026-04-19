@@ -30,15 +30,18 @@ app.post("/api/create-player", async (req, res) => {
       waitUntil: "domcontentloaded"
     });
 
-    // 🔥 esperar más (Angular)
-    await delay(8000);
+    // 🔥 esperar Angular
+    await delay(10000);
 
-    // 🔥 LOGIN (USANDO ID REAL)
-    await page.waitForSelector("#username", { timeout: 30000 });
-    await page.type("#username", process.env.BET30_ADMIN_USER);
+    // 🔥 LOGIN ROBUSTO (SIN SELECTOR FRÁGIL)
+    const inputsLogin = await page.$$('input');
 
-    await page.waitForSelector("#password", { timeout: 30000 });
-    await page.type("#password", process.env.BET30_ADMIN_PASSWORD);
+    if (inputsLogin.length < 2) {
+      throw new Error("No se encontraron inputs de login");
+    }
+
+    await inputsLogin[0].type(process.env.BET30_ADMIN_USER);
+    await inputsLogin[1].type(process.env.BET30_ADMIN_PASSWORD);
 
     await page.click("#dologin");
 
@@ -46,10 +49,7 @@ app.post("/api/create-player", async (req, res) => {
 
     console.log("✅ Login correcto");
 
-    // 🔥 YA ESTÁS DENTRO → NO HAGAS GOTO
-    // simplemente interactúa con lo que ya cargó
-
-    // esperar que cargue panel
+    // 🔥 esperar panel cargado
     await delay(8000);
 
     // 🔥 CLICK "Nuevo Jugador"
@@ -63,17 +63,21 @@ app.post("/api/create-player", async (req, res) => {
 
     console.log("👤 Formulario abierto");
 
-    // 🔥 INPUTS CORRECTOS (placeholder)
-    await page.waitForSelector('input[placeholder="Username"]', { timeout: 20000 });
-    await page.type('input[placeholder="Username"]', username);
+    // 🔥 INPUTS DEL MODAL
+    const inputs = await page.$$('input');
 
-    await page.waitForSelector('input[placeholder="Password"]', { timeout: 20000 });
-    await page.type('input[placeholder="Password"]', password);
+    if (inputs.length < 4) {
+      throw new Error("No se encontraron inputs del formulario");
+    }
+
+    // normalmente los últimos 2 son los del modal
+    await inputs[inputs.length - 2].type(username);
+    await inputs[inputs.length - 1].type(password);
 
     // 🔥 CLICK GUARDAR
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
-        .find(el => el.innerText.includes("GUARDAR"));
+        .find(el => el.innerText.toLowerCase().includes("guardar"));
       if (btn) btn.click();
     });
 
