@@ -25,50 +25,67 @@ app.post("/api/create-player", async (req, res) => {
     const page = await browser.newPage();
 
     console.log("🔐 Entrando a BET30...");
+    await page.goto(process.env.BET30_ADMIN_URL);
 
-    await page.goto(process.env.BET30_ADMIN_URL, {
-      waitUntil: "networkidle2"
-    });
+    await delay(15000); // 🔥 MUY IMPORTANTE
 
-    // 🔥 ESPERAR BIEN (clave)
-    await delay(12000);
+    console.log("🔎 Buscando inputs reales...");
 
-    // 🔥 ESPERAR QUE EXISTA CUALQUIER INPUT
-    await page.waitForSelector("input", { timeout: 30000 });
+    const inputs = await page.$$("input");
 
-    // 🔥 DETECTAR INPUTS VISIBLES
-    const inputsLogin = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll("input"))
-        .filter(i => i.offsetParent !== null) // solo visibles
-        .map((_, i) => i);
-    });
-
-    if (inputsLogin.length < 2) {
-      throw new Error("No hay suficientes inputs visibles para login");
+    if (inputs.length < 2) {
+      throw new Error("No hay suficientes inputs en login");
     }
 
-    const allInputs = await page.$$("input");
+    // 🔥 PROBAR TODOS LOS INPUTS HASTA QUE FUNCIONE
+    let loginSuccess = false;
 
-    // 🔥 ESCRIBIR LOGIN
-    await allInputs[inputsLogin[0]].type(process.env.BET30_ADMIN_USER);
-    await allInputs[inputsLogin[1]].type(process.env.BET30_ADMIN_PASSWORD);
+    for (let i = 0; i < inputs.length - 1; i++) {
+      try {
+        console.log("Probando inputs:", i, i + 1);
 
-    // 🔥 CLICK LOGIN
-    await page.evaluate(() => {
-      const btn = document.querySelector("#dologin") ||
-        [...document.querySelectorAll("button")]
-          .find(b => b.innerText.toLowerCase().includes("iniciar"));
-      if (btn) btn.click();
-    });
+        await inputs[i].click({ clickCount: 3 });
+        await inputs[i].type(process.env.BET30_ADMIN_USER);
 
-    await delay(12000);
+        await inputs[i + 1].click({ clickCount: 3 });
+        await inputs[i + 1].type(process.env.BET30_ADMIN_PASSWORD);
 
-    console.log("✅ Login correcto");
+        // click login
+        const btn = await page.$("#dologin");
+        if (btn) {
+          await btn.click();
+        } else {
+          await page.evaluate(() => {
+            const b = [...document.querySelectorAll("button")]
+              .find(el => el.innerText.toLowerCase().includes("iniciar"));
+            if (b) b.click();
+          });
+        }
+
+        await delay(10000);
+
+        // verificar si cambió la página
+        const url = page.url();
+        if (!url.includes("login")) {
+          console.log("✅ LOGIN EXITOSO");
+          loginSuccess = true;
+          break;
+        }
+
+      } catch (e) {
+        console.log("Intento fallido:", i);
+      }
+    }
+
+    if (!loginSuccess) {
+      throw new Error("No se pudo hacer login en BET30");
+    }
 
     // 🔥 ESPERAR PANEL
     await delay(8000);
 
-    // 🔥 CLICK NUEVO JUGADOR
+    console.log("🔎 Buscando botón Nuevo Jugador...");
+
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
         .find(el => el.innerText.toLowerCase().includes("nuevo"));
@@ -77,30 +94,18 @@ app.post("/api/create-player", async (req, res) => {
 
     await delay(6000);
 
-    console.log("👤 Formulario abierto");
+    console.log("👤 Creando usuario...");
 
-    // 🔥 INPUTS DEL MODAL (VISIBLES)
-    const modalInputsIndex = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll("input"))
-        .map((el, i) => ({ el, i }))
-        .filter(obj => obj.el.offsetParent !== null)
-        .map(obj => obj.i);
-    });
+    const inputs2 = await page.$$("input");
 
-    const modalInputs = await page.$$("input");
-
-    if (modalInputsIndex.length < 2) {
-      throw new Error("No se encontraron inputs del modal");
+    if (inputs2.length < 2) {
+      throw new Error("No se encontraron inputs del formulario");
     }
 
-    // usar últimos visibles
-    const userIndex = modalInputsIndex[modalInputsIndex.length - 2];
-    const passIndex = modalInputsIndex[modalInputsIndex.length - 1];
+    // usar últimos inputs visibles
+    await inputs2[inputs2.length - 2].type(username);
+    await inputs2[inputs2.length - 1].type(password);
 
-    await modalInputs[userIndex].type(username);
-    await modalInputs[passIndex].type(password);
-
-    // 🔥 CLICK GUARDAR
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
         .find(el => el.innerText.toLowerCase().includes("guardar"));
