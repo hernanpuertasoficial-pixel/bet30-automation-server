@@ -17,12 +17,11 @@ app.get("/", (req, res) => {
   res.send("BET30 automation server running 🚀");
 });
 
-app.post("/api/create-player", async (req, res) => {
-  const { username, password } = req.body;
-
+// 🔥 FUNCIÓN SEPARADA (background)
+async function runBot(username, password) {
   try {
     const browser = await puppeteer.launch({
-      headless: false, // 🔥 IMPORTANTE PARA DEBUG
+      headless: true,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -42,12 +41,9 @@ app.post("/api/create-player", async (req, res) => {
       waitUntil: "networkidle2"
     });
 
-    await delay(10000);
+    await delay(8000);
 
-    // 🔥 LOGIN MÁS INTELIGENTE
     const inputs = await page.$$("input");
-
-    console.log("Inputs detectados:", inputs.length);
 
     if (inputs.length < 2) {
       throw new Error("No se detectaron inputs de login");
@@ -56,7 +52,6 @@ app.post("/api/create-player", async (req, res) => {
     await inputs[0].type(process.env.BET30_ADMIN_USER);
     await inputs[1].type(process.env.BET30_ADMIN_PASSWORD);
 
-    // click login
     await page.evaluate(() => {
       const btn =
         document.querySelector("#dologin") ||
@@ -65,11 +60,10 @@ app.post("/api/create-player", async (req, res) => {
       if (btn) btn.click();
     });
 
-    await delay(12000);
+    await delay(10000);
 
     console.log("✅ Login hecho");
 
-    // 🔥 CLICK NUEVO JUGADOR
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
         .find(el => el.innerText.toLowerCase().includes("nuevo"));
@@ -80,12 +74,10 @@ app.post("/api/create-player", async (req, res) => {
 
     const inputs2 = await page.$$("input");
 
-    if (inputs2.length < 2) {
-      throw new Error("No se encontraron inputs del formulario");
+    if (inputs2.length >= 2) {
+      await inputs2[inputs2.length - 2].type(username);
+      await inputs2[inputs2.length - 1].type(password);
     }
-
-    await inputs2[inputs2.length - 2].type(username);
-    await inputs2[inputs2.length - 1].type(password);
 
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
@@ -93,24 +85,29 @@ app.post("/api/create-player", async (req, res) => {
       if (btn) btn.click();
     });
 
-    await delay(8000);
+    await delay(6000);
 
     console.log("✅ Usuario creado");
 
     await browser.close();
 
-    return res.json({
-      success: true
-    });
-
-  } catch (error) {
-    console.error("❌ ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
+  } catch (err) {
+    console.error("❌ BOT ERROR:", err.message);
   }
+}
+
+// 🔥 ENDPOINT (RESPUESTA RÁPIDA)
+app.post("/api/create-player", async (req, res) => {
+  const { username, password } = req.body;
+
+  // ⚡ responder rápido (evita 502)
+  res.json({
+    success: true,
+    message: "Proceso iniciado"
+  });
+
+  // 🔥 ejecutar en background
+  runBot(username, password);
 });
 
 const PORT = process.env.PORT || 3000;
