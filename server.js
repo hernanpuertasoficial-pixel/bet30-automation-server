@@ -31,33 +31,41 @@ app.post("/api/create-player", async (req, res) => {
       waitUntil: "networkidle2"
     });
 
-    // 🔥 esperar que Angular cargue bien
-    await delay(5000);
+    await delay(6000);
 
-    // ✅ LOGIN (corregido usando name)
-    await page.waitForSelector('input[name="username"]', { timeout: 20000 });
-    await page.type('input[name="username"]', process.env.BET30_ADMIN_USER);
+    // 🔥 DETECTAR SI HAY IFRAME
+    let frame = page;
 
-    await page.type('input[name="password"]', process.env.BET30_ADMIN_PASSWORD);
+    const frames = await page.frames();
+    if (frames.length > 1) {
+      console.log("⚠️ Usando iframe");
+      frame = frames.find(f => f.url().includes("bet30")) || page;
+    }
 
-    await page.click("#dologin");
+    // 🔥 LOGIN ROBUSTO
+    await frame.waitForSelector('input[name="username"]', { timeout: 30000 });
+    await frame.type('input[name="username"]', process.env.BET30_ADMIN_USER);
 
-    // esperar login completo
+    await frame.waitForSelector('input[name="password"]', { timeout: 30000 });
+    await frame.type('input[name="password"]', process.env.BET30_ADMIN_PASSWORD);
+
+    await frame.click("#dologin");
+
     await delay(8000);
 
     console.log("✅ Login correcto");
 
-    // 🔥 IR A USUARIOS (por si no está ya ahí)
+    // 🔥 IR A USUARIOS
     await page.goto("https://agentes.bet30.biz/users", {
       waitUntil: "networkidle2"
     });
 
-    await delay(5000);
+    await delay(6000);
 
-    // 🔥 CLICK BOTÓN "Nuevo Jugador"
+    // 🔥 CLICK NUEVO JUGADOR (robusto)
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
-        .find(el => el.innerText.includes("Nuevo Jugador"));
+        .find(el => el.innerText.toLowerCase().includes("nuevo"));
       if (btn) btn.click();
     });
 
@@ -65,17 +73,20 @@ app.post("/api/create-player", async (req, res) => {
 
     console.log("👤 Formulario abierto");
 
-    // 🔥 INPUTS DEL MODAL (más robusto)
-    await page.waitForSelector('input[placeholder="Username"]', { timeout: 20000 });
-    await page.type('input[placeholder="Username"]', username);
+    // 🔥 INPUTS MODAL (más flexible)
+    const inputs = await page.$$('input');
 
-    await page.waitForSelector('input[placeholder="Password"]', { timeout: 20000 });
-    await page.type('input[placeholder="Password"]', password);
+    if (inputs.length < 2) {
+      throw new Error("No se encontraron inputs del formulario");
+    }
+
+    await inputs[0].type(username);
+    await inputs[1].type(password);
 
     // 🔥 CLICK GUARDAR
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")]
-        .find(el => el.innerText.includes("GUARDAR"));
+        .find(el => el.innerText.toLowerCase().includes("guardar"));
       if (btn) btn.click();
     });
 
