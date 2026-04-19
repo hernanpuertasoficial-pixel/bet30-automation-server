@@ -27,52 +27,78 @@ app.post("/api/create-player", async (req, res) => {
     console.log("🔐 Entrando a BET30...");
 
     await page.goto(process.env.BET30_ADMIN_URL, {
-      waitUntil: "domcontentloaded"
+      waitUntil: "networkidle2"
     });
 
-    // 🔥 esperar Angular
-    await delay(10000);
+    // 🔥 ESPERAR BIEN (clave)
+    await delay(12000);
 
-    // 🔥 LOGIN ROBUSTO (SIN SELECTOR FRÁGIL)
-    const inputsLogin = await page.$$('input');
+    // 🔥 ESPERAR QUE EXISTA CUALQUIER INPUT
+    await page.waitForSelector("input", { timeout: 30000 });
+
+    // 🔥 DETECTAR INPUTS VISIBLES
+    const inputsLogin = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll("input"))
+        .filter(i => i.offsetParent !== null) // solo visibles
+        .map((_, i) => i);
+    });
 
     if (inputsLogin.length < 2) {
-      throw new Error("No se encontraron inputs de login");
+      throw new Error("No hay suficientes inputs visibles para login");
     }
 
-    await inputsLogin[0].type(process.env.BET30_ADMIN_USER);
-    await inputsLogin[1].type(process.env.BET30_ADMIN_PASSWORD);
+    const allInputs = await page.$$("input");
 
-    await page.click("#dologin");
+    // 🔥 ESCRIBIR LOGIN
+    await allInputs[inputsLogin[0]].type(process.env.BET30_ADMIN_USER);
+    await allInputs[inputsLogin[1]].type(process.env.BET30_ADMIN_PASSWORD);
 
-    await delay(10000);
-
-    console.log("✅ Login correcto");
-
-    // 🔥 esperar panel cargado
-    await delay(8000);
-
-    // 🔥 CLICK "Nuevo Jugador"
+    // 🔥 CLICK LOGIN
     await page.evaluate(() => {
-      const btn = [...document.querySelectorAll("button")]
-        .find(el => el.innerText.includes("Nuevo Jugador"));
+      const btn = document.querySelector("#dologin") ||
+        [...document.querySelectorAll("button")]
+          .find(b => b.innerText.toLowerCase().includes("iniciar"));
       if (btn) btn.click();
     });
 
-    await delay(5000);
+    await delay(12000);
+
+    console.log("✅ Login correcto");
+
+    // 🔥 ESPERAR PANEL
+    await delay(8000);
+
+    // 🔥 CLICK NUEVO JUGADOR
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll("button")]
+        .find(el => el.innerText.toLowerCase().includes("nuevo"));
+      if (btn) btn.click();
+    });
+
+    await delay(6000);
 
     console.log("👤 Formulario abierto");
 
-    // 🔥 INPUTS DEL MODAL
-    const inputs = await page.$$('input');
+    // 🔥 INPUTS DEL MODAL (VISIBLES)
+    const modalInputsIndex = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll("input"))
+        .map((el, i) => ({ el, i }))
+        .filter(obj => obj.el.offsetParent !== null)
+        .map(obj => obj.i);
+    });
 
-    if (inputs.length < 4) {
-      throw new Error("No se encontraron inputs del formulario");
+    const modalInputs = await page.$$("input");
+
+    if (modalInputsIndex.length < 2) {
+      throw new Error("No se encontraron inputs del modal");
     }
 
-    // normalmente los últimos 2 son los del modal
-    await inputs[inputs.length - 2].type(username);
-    await inputs[inputs.length - 1].type(password);
+    // usar últimos visibles
+    const userIndex = modalInputsIndex[modalInputsIndex.length - 2];
+    const passIndex = modalInputsIndex[modalInputsIndex.length - 1];
+
+    await modalInputs[userIndex].type(username);
+    await modalInputs[passIndex].type(password);
 
     // 🔥 CLICK GUARDAR
     await page.evaluate(() => {
@@ -81,7 +107,7 @@ app.post("/api/create-player", async (req, res) => {
       if (btn) btn.click();
     });
 
-    await delay(6000);
+    await delay(8000);
 
     console.log("✅ Usuario creado en BET30");
 
