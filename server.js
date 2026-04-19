@@ -28,8 +28,13 @@ app.post("/api/create-player", async (req, res) => {
       waitUntil: "networkidle2"
     });
 
-    // LOGIN usando variables de Railway
+    // 🔥 ESPERAR INPUTS (CORREGIDO)
+    await page.waitForTimeout(3000);
+
+    await page.waitForSelector("#username", { timeout: 10000 });
     await page.type("#username", process.env.BET30_ADMIN_USER);
+
+    await page.waitForSelector("#password", { timeout: 10000 });
     await page.type("#password", process.env.BET30_ADMIN_PASSWORD);
 
     await page.click("#dologin");
