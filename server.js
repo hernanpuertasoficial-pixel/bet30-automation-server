@@ -22,46 +22,37 @@ app.post("/api/create-player", async (req, res) => {
 
     const page = await browser.newPage();
 
-    console.log("🔐 Entrando a BET30...");
+    console.log("🔐 Login BET30...");
 
     await page.goto("https://agentes.bet30.biz/", {
       waitUntil: "networkidle2"
     });
 
-    // LOGIN
-    await page.type('input[name="username"]', "bot");
-    await page.type('input[name="password"]', "12345678a");
+    // LOGIN REAL (ya corregido)
+    await page.type("#username", "bot");
+    await page.type("#password", "12345678a");
 
-    await page.click('button[type="submit"]');
+    await page.click("#dologin");
 
     await page.waitForNavigation();
 
     console.log("✅ Login correcto");
 
-    // ⚠️ ESTO HAY QUE AJUSTAR SEGÚN LA WEB REAL
-    // intenta ir a crear jugador
-    await page.goto("https://agentes.bet30.biz/crear-usuario", {
-      waitUntil: "networkidle2"
-    });
+    // ⚠️ AQUÍ FALTA AÚN
+    // navegar a "crear jugador"
+    // NECESITO ESA PANTALLA
 
-    console.log("👤 Creando usuario...");
-
-    await page.type('input[name="username"]', username);
-    await page.type('input[name="password"]', password);
-
-    await page.click('button[type="submit"]');
-
-    await page.waitForTimeout(5000);
+    console.log("👤 Creando usuario (pendiente configurar form)...");
 
     await browser.close();
 
     return res.json({
       success: true,
-      message: "Usuario creado en BET30"
+      message: "Login correcto, falta paso crear usuario"
     });
 
   } catch (error) {
-    console.error("❌ ERROR:", error);
+    console.error(error);
 
     return res.status(500).json({
       success: false,
