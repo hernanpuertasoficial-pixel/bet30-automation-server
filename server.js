@@ -38,55 +38,69 @@ async function runBot(username, password, attempt = 1) {
 
     console.log("Abriendo BET30...");
     await page.goto(process.env.BET30_ADMIN_URL, { waitUntil: "networkidle2", timeout: 60000 });
-    await delay(10000);
+    await delay(5000);
 
-    let inputs = await page.$$("input");
+    // Esperar que aparezcan los inputs de login
+    console.log("Esperando inputs de login...");
+    await page.waitForSelector("input", { timeout: 30000 });
+
+    const inputs = await page.$$("input");
     console.log("Inputs encontrados:", inputs.length);
 
-    if (inputs.length < 2) throw new Error("No se detectaron inputs de login");
-
+    // Login
     await inputs[0].click({ clickCount: 3 });
-    await inputs[0].type(process.env.BET30_ADMIN_USER, { delay: 50 });
+    await inputs[0].type(process.env.BET30_ADMIN_USER, { delay: 80 });
     await inputs[1].click({ clickCount: 3 });
-    await inputs[1].type(process.env.BET30_ADMIN_PASSWORD, { delay: 50 });
+    await inputs[1].type(process.env.BET30_ADMIN_PASSWORD, { delay: 80 });
 
+    // Buscar boton INICIAR SESION
     await page.evaluate(() => {
-      const btn = document.querySelector("#dologin") ||
-        [...document.querySelectorAll("button")].find(b => b.innerText.toLowerCase().includes("iniciar"));
+      const btns = [...document.querySelectorAll("button")];
+      const btn = btns.find(b => b.innerText.toUpperCase().includes("INICIAR"));
       if (btn) btn.click();
     });
 
-    console.log("Login enviado");
-    await delay(12000);
+    console.log("Login enviado, esperando panel...");
+    await delay(8000);
 
+    // Esperar que cargue el panel
+    await page.waitForSelector("button", { timeout: 30000 });
+
+    // Buscar boton Nuevo Jugador
+    console.log("Buscando boton Nuevo Jugador...");
     await page.evaluate(() => {
-      const btn = [...document.querySelectorAll("button")].find(el => el.innerText.toLowerCase().includes("nuevo"));
+      const btns = [...document.querySelectorAll("button")];
+      const btn = btns.find(b => b.innerText.toUpperCase().includes("NUEVO"));
       if (btn) btn.click();
     });
 
-    await delay(6000);
-    console.log("Formulario abierto");
+    console.log("Modal abierto, esperando formulario...");
+    await delay(3000);
 
-    let inputs2 = await page.$$("input");
-    console.log("Inputs formulario:", inputs2.length);
+    // Esperar el modal con los inputs Username y Password
+    await page.waitForSelector("input[placeholder='Username'], input[placeholder='username']", { timeout: 15000 });
 
-    if (inputs2.length < 2) throw new Error("No se encontraron inputs del formulario");
+    const userInput = await page.$("input[placeholder='Username']") || await page.$("input[placeholder='username']");
+    const passInput = await page.$("input[placeholder='Password']") || await page.$("input[placeholder='password']");
 
-    const userInput = inputs2[inputs2.length - 2];
-    const passInput = inputs2[inputs2.length - 1];
+    if (!userInput || !passInput) throw new Error("No se encontraron inputs del modal");
 
     await userInput.click({ clickCount: 3 });
-    await userInput.type(username, { delay: 50 });
+    await userInput.type(username, { delay: 80 });
     await passInput.click({ clickCount: 3 });
-    await passInput.type(password, { delay: 50 });
+    await passInput.type(password, { delay: 80 });
 
+    console.log("Datos ingresados, guardando...");
+
+    // Buscar boton GUARDAR
     await page.evaluate(() => {
-      const btn = [...document.querySelectorAll("button")].find(el => el.innerText.toLowerCase().includes("guardar"));
+      const btns = [...document.querySelectorAll("button")];
+      const btn = btns.find(b => b.innerText.toUpperCase().includes("GUARDAR"));
       if (btn) btn.click();
     });
 
-    await delay(8000);
-    console.log(`Usuario creado: ${username}`);
+    await delay(5000);
+    console.log(`Usuario creado exitosamente: ${username}`);
     await browser.close();
 
   } catch (error) {
@@ -102,17 +116,15 @@ async function runBot(username, password, attempt = 1) {
 }
 
 app.post("/api/create-player", async (req, res) => {
-  const username = req.body?.username || req.body?.player?.username
-  const password = req.body?.password || req.body?.player?.password
+  const username = req.body?.username || req.body?.player?.username;
+  const password = req.body?.password || req.body?.player?.password;
 
   if (!username || !password) {
     return res.status(400).json({ success: false, error: "Faltan datos" });
   }
 
   console.log("Nueva solicitud:", username);
-
   res.json({ success: true, message: "Bot ejecutandose" });
-
   runBot(username, password);
 });
 
