@@ -37,23 +37,34 @@ async function runBot(username, password, attempt = 1) {
     await page.setViewport({ width: 1366, height: 768 });
 
     console.log("Abriendo BET30...");
-    await page.goto(process.env.BET30_ADMIN_URL, { waitUntil: "networkidle2", timeout: 60000 });
-    await delay(5000);
+    await page.goto(process.env.BET30_ADMIN_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await delay(8000);
 
-    // Esperar que aparezcan los inputs de login
-    console.log("Esperando inputs de login...");
-    await page.waitForSelector("input", { timeout: 30000 });
+    // Ver que hay en la pagina
+    const html = await page.content();
+    console.log("HTML primeros 300 chars:", html.substring(0, 300));
 
     const inputs = await page.$$("input");
     console.log("Inputs encontrados:", inputs.length);
 
-    // Login
-    await inputs[0].click({ clickCount: 3 });
-    await inputs[0].type(process.env.BET30_ADMIN_USER, { delay: 80 });
-    await inputs[1].click({ clickCount: 3 });
-    await inputs[1].type(process.env.BET30_ADMIN_PASSWORD, { delay: 80 });
+    const allText = await page.evaluate(() => document.body.innerText.substring(0, 200));
+    console.log("Texto pagina:", allText);
 
-    // Buscar boton INICIAR SESION
+    if (inputs.length < 2) {
+      await delay(10000);
+      const inputs2 = await page.$$("input");
+      console.log("Inputs despues espera extra:", inputs2.length);
+      if (inputs2.length < 2) {
+        throw new Error("No aparecen inputs en la pagina");
+      }
+    }
+
+    const freshInputs = await page.$$("input");
+    await freshInputs[0].click({ clickCount: 3 });
+    await freshInputs[0].type(process.env.BET30_ADMIN_USER, { delay: 80 });
+    await freshInputs[1].click({ clickCount: 3 });
+    await freshInputs[1].type(process.env.BET30_ADMIN_PASSWORD, { delay: 80 });
+
     await page.evaluate(() => {
       const btns = [...document.querySelectorAll("button")];
       const btn = btns.find(b => b.innerText.toUpperCase().includes("INICIAR"));
@@ -61,38 +72,36 @@ async function runBot(username, password, attempt = 1) {
     });
 
     console.log("Login enviado, esperando panel...");
-    await delay(8000);
+    await delay(10000);
 
-    // Esperar que cargue el panel
-    await page.waitForSelector("button", { timeout: 30000 });
+    const urlDespuesLogin = page.url();
+    console.log("URL despues login:", urlDespuesLogin);
 
-    // Buscar boton Nuevo Jugador
-    console.log("Buscando boton Nuevo Jugador...");
+    const textoDespuesLogin = await page.evaluate(() => document.body.innerText.substring(0, 200));
+    console.log("Texto despues login:", textoDespuesLogin);
+
     await page.evaluate(() => {
       const btns = [...document.querySelectorAll("button")];
       const btn = btns.find(b => b.innerText.toUpperCase().includes("NUEVO"));
       if (btn) btn.click();
     });
 
-    console.log("Modal abierto, esperando formulario...");
-    await delay(3000);
+    console.log("Click en Nuevo Jugador, esperando modal...");
+    await delay(4000);
 
-    // Esperar el modal con los inputs Username y Password
-    await page.waitForSelector("input[placeholder='Username'], input[placeholder='username']", { timeout: 15000 });
+    const inputsModal = await page.$$("input");
+    console.log("Inputs en modal:", inputsModal.length);
 
-    const userInput = await page.$("input[placeholder='Username']") || await page.$("input[placeholder='username']");
-    const passInput = await page.$("input[placeholder='Password']") || await page.$("input[placeholder='password']");
+    if (inputsModal.length < 2) throw new Error("No aparecio el modal");
 
-    if (!userInput || !passInput) throw new Error("No se encontraron inputs del modal");
+    const userInput = inputsModal[inputsModal.length - 2];
+    const passInput = inputsModal[inputsModal.length - 1];
 
     await userInput.click({ clickCount: 3 });
     await userInput.type(username, { delay: 80 });
     await passInput.click({ clickCount: 3 });
     await passInput.type(password, { delay: 80 });
 
-    console.log("Datos ingresados, guardando...");
-
-    // Buscar boton GUARDAR
     await page.evaluate(() => {
       const btns = [...document.querySelectorAll("button")];
       const btn = btns.find(b => b.innerText.toUpperCase().includes("GUARDAR"));
